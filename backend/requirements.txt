@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+pandas
+numpy
+scikit-learn
+lightgbm
+networkx
+joblib
+scipy
+geopy
+python-multipart

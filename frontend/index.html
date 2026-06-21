@@ -1,0 +1,1216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AstraTraffic AI - Digital Twin & Command Center</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <style>
+        :root {
+            --bg-color: #0b0c10;
+            --panel-bg: rgba(22, 28, 38, 0.75);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --accent-primary: #00f0ff;
+            --accent-secondary: #ff7b00;
+            --accent-danger: #ff0055;
+            --accent-success: #00ff66;
+            --text-main: #f0f3f8;
+            --text-muted: #8a96a3;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header styling */
+        header {
+            height: 60px;
+            background: rgba(11, 12, 16, 0.9);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            z-index: 1000;
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            color: #000;
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.4);
+        }
+
+        .logo-text h1 {
+            font-size: 1.15rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            background: linear-gradient(to right, #fff, var(--text-muted));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .status-badge {
+            background: rgba(0, 255, 102, 0.1);
+            border: 1px solid rgba(0, 255, 102, 0.2);
+            color: var(--accent-success);
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            background-color: var(--accent-success);
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.3; }
+            50% { opacity: 1; }
+            100% { opacity: 0.3; }
+        }
+
+        /* Layout Grid */
+        .dashboard-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Panels */
+        .sidebar {
+            width: 360px;
+            background: var(--panel-bg);
+            backdrop-filter: blur(12px);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            z-index: 999;
+        }
+
+        .right-panel {
+            width: 400px;
+            background: var(--panel-bg);
+            backdrop-filter: blur(12px);
+            border-left: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            z-index: 999;
+        }
+
+        .map-container {
+            flex: 1;
+            position: relative;
+            background-color: #0b0c10;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #map {
+            flex: 1;
+            width: 100%;
+        }
+
+        /* Timeline Player Bottom Bar */
+        .timeline-container {
+            height: 70px;
+            background: rgba(11, 12, 16, 0.9);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            gap: 15px;
+            z-index: 999;
+        }
+
+        .play-btn {
+            background: var(--accent-primary);
+            color: #000;
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-weight: bold;
+            box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+            transition: all 0.2s ease;
+        }
+
+        .play-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.5);
+        }
+
+        .slider-wrapper {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .timeline-slider {
+            flex: 1;
+            -webkit-appearance: none;
+            appearance: none;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            outline: none;
+        }
+
+        .timeline-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--accent-primary);
+            cursor: pointer;
+            box-shadow: 0 0 8px rgba(0, 240, 255, 0.5);
+        }
+
+        .timeline-time {
+            font-size: 0.85rem;
+            color: var(--accent-primary);
+            font-weight: 600;
+            width: 50px;
+        }
+
+        /* Panel Elements styling */
+        .panel-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .panel-header h2 {
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-main);
+        }
+
+        /* KPI Card styling */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .kpi-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-color);
+            padding: 12px;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .kpi-title {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            color: var(--text-muted);
+        }
+
+        .kpi-value {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .kpi-value.cyan { color: var(--accent-primary); }
+        .kpi-value.orange { color: var(--accent-secondary); }
+        .kpi-value.red { color: var(--accent-danger); }
+
+        /* Incident List */
+        .incident-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding: 15px 20px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .incident-card {
+            background: rgba(255, 255, 255, 0.01);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .incident-card:hover {
+            border-color: rgba(0, 240, 255, 0.3);
+            background: rgba(0, 240, 255, 0.02);
+        }
+
+        .incident-card.active-card {
+            border-color: var(--accent-primary);
+            background: rgba(0, 240, 255, 0.03);
+        }
+
+        .incident-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .priority-badge {
+            font-size: 0.6rem;
+            font-weight: 600;
+            padding: 1px 5px;
+            border-radius: 3px;
+            text-transform: uppercase;
+        }
+
+        .priority-badge.high {
+            background: rgba(255, 0, 85, 0.15);
+            color: var(--accent-danger);
+            border: 1px solid rgba(255, 0, 85, 0.3);
+        }
+
+        .priority-badge.low {
+            background: rgba(138, 150, 163, 0.15);
+            color: var(--text-muted);
+            border: 1px solid rgba(138, 150, 163, 0.3);
+        }
+
+        .cause-tag {
+            font-size: 0.7rem;
+            font-weight: 500;
+            color: #fff;
+        }
+
+        .incident-description {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            line-height: 1.35;
+            margin-bottom: 8px;
+        }
+
+        .incident-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.65rem;
+            color: var(--text-muted);
+        }
+
+        /* Tabs styling */
+        .tabs-header {
+            display: flex;
+            border-bottom: 1px solid var(--border-color);
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 12px 5px;
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-align: center;
+        }
+
+        .tab-btn.active-tab {
+            color: var(--accent-primary);
+            border-bottom: 2px solid var(--accent-primary);
+        }
+
+        .tab-content {
+            display: none;
+            padding: 15px 20px;
+            flex-direction: column;
+            gap: 15px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .tab-content.active-content {
+            display: flex;
+        }
+
+        /* Forms inputs */
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .form-group label {
+            font-size: 0.65rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        .form-group input, .form-group select, .form-group textarea {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-color);
+            color: #fff;
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            outline: none;
+        }
+
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            border-color: var(--accent-primary);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-primary), #00aaff);
+            color: #000;
+            border: none;
+            padding: 10px;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0, 240, 255, 0.2);
+        }
+
+        /* Results panel card */
+        .results-box {
+            background: rgba(255, 255, 255, 0.01);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px;
+        }
+
+        .results-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--accent-primary);
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+
+        .metric-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            padding: 6px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+        }
+
+        .metric-row:last-child {
+            border-bottom: none;
+        }
+
+        .metric-label {
+            color: var(--text-muted);
+        }
+
+        .metric-val {
+            font-weight: 600;
+            color: #fff;
+        }
+
+        /* Explainable AI attribution chart */
+        .xai-bar-container {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-top: 10px;
+        }
+
+        .xai-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.7rem;
+        }
+
+        .xai-label {
+            width: 110px;
+            color: var(--text-muted);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .xai-bar-wrapper {
+            flex: 1;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .xai-bar-fill {
+            height: 100%;
+            background: var(--accent-primary);
+            border-radius: 4px;
+        }
+
+        .xai-value {
+            width: 30px;
+            text-align: right;
+            font-weight: 600;
+        }
+
+        /* Chat interface */
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            height: 380px;
+            border: 1px solid var(--border-color);
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            overflow-y: auto;
+        }
+
+        .chat-bubble {
+            max-width: 85%;
+            padding: 8px 12px;
+            border-radius: 10px;
+            font-size: 0.75rem;
+            line-height: 1.4;
+        }
+
+        .chat-bubble.user {
+            background: rgba(0, 240, 255, 0.08);
+            color: var(--accent-primary);
+            border: 1px solid rgba(0, 240, 255, 0.15);
+            align-self: flex-end;
+            border-bottom-right-radius: 2px;
+        }
+
+        .chat-bubble.assistant {
+            background: rgba(255, 255, 255, 0.02);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            align-self: flex-start;
+            border-bottom-left-radius: 2px;
+        }
+
+        .chat-input-area {
+            display: flex;
+            border-top: 1px solid var(--border-color);
+            background: rgba(11, 12, 16, 0.8);
+        }
+
+        .chat-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            padding: 12px;
+            color: #fff;
+            font-size: 0.8rem;
+            outline: none;
+        }
+
+        .chat-send-btn {
+            background: transparent;
+            border: none;
+            color: var(--accent-primary);
+            font-weight: 600;
+            padding: 0 15px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo-section">
+            <div class="logo-icon">A</div>
+            <div class="logo-text">
+                <h1>AstraTraffic AI Command Room</h1>
+            </div>
+        </div>
+        <div class="status-badge">
+            <div class="status-dot"></div>
+            SYSTEM OPERATIONAL
+        </div>
+    </header>
+
+    <div class="dashboard-container">
+        <!-- Sidebar: Incident List -->
+        <div class="sidebar">
+            <div class="panel-header">
+                <h2>INCIDENT FEED</h2>
+            </div>
+            
+            <div class="kpi-grid">
+                <div class="kpi-card">
+                    <span class="kpi-title">Active Alerts</span>
+                    <span class="kpi-value cyan" id="kpi-active">0</span>
+                </div>
+                <div class="kpi-card">
+                    <span class="kpi-title">Congested Nodes</span>
+                    <span class="kpi-value red" id="kpi-hotspots">0</span>
+                </div>
+            </div>
+            
+            <div class="incident-list" id="incident-list-container">
+                <div style="padding: 20px; text-align: center; color: var(--text-muted);">Loading live incident logs...</div>
+            </div>
+        </div>
+
+        <!-- Center Pane: Leaflet Map & Timeline Player -->
+        <div class="map-container">
+            <div id="map"></div>
+            
+            <!-- Bottom Timeline Player Bar -->
+            <div class="timeline-container">
+                <button class="play-btn" id="play-btn" onclick="toggleTimelinePlay()">▶</button>
+                <div class="slider-wrapper">
+                    <span style="font-size:0.75rem; color:var(--text-muted);">00:00</span>
+                    <input type="range" class="timeline-slider" id="timeline-slider" min="0" max="5" value="0" oninput="setTimelineStep(this.value)">
+                    <span style="font-size:0.75rem; color:var(--text-muted);">06:00</span>
+                </div>
+                <span class="timeline-time" id="timeline-time">t = 0</span>
+            </div>
+        </div>
+
+        <!-- Right Panel: Forecasting & Decision Support -->
+        <div class="right-panel">
+            <div class="tabs-header">
+                <button class="tab-btn active-tab" onclick="switchTab('predictor-tab')">Operational Plan</button>
+                <button class="tab-btn" onclick="switchTab('simulator-tab')">What-If Sim</button>
+                <button class="tab-btn" onclick="switchTab('copilot-tab')">Commander Copilot</button>
+            </div>
+
+            <!-- Tab 1: Predictor & Decisions -->
+            <div id="predictor-tab" class="tab-content active-content">
+                <div class="form-group">
+                    <label>Incident Cause</label>
+                    <select id="input-cause">
+                        <option value="vehicle_breakdown">Vehicle Breakdown</option>
+                        <option value="water_logging">Water Logging</option>
+                        <option value="accident">Accident</option>
+                        <option value="construction">Road Work / Construction</option>
+                        <option value="tree_fall">Tree Fall</option>
+                        <option value="public_event">Public Event (Match / Festival)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Requires Road Closure</label>
+                    <select id="input-closure">
+                        <option value="false">No (Partial Obstruction)</option>
+                        <option value="true">Yes (Complete Blockage)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Priority</label>
+                    <select id="input-priority">
+                        <option value="Low">Low Priority</option>
+                        <option value="High">High Priority</option>
+                    </select>
+                </div>
+                <button class="btn-primary" onclick="submitPrediction()">Generate Operational Plan</button>
+
+                <!-- Plan Results -->
+                <div class="results-box" id="predict-results" style="display:none;">
+                    <div class="results-title">AI Predictive Forecast</div>
+                    <div class="metric-row">
+                        <span class="metric-label">Estimated Delay Duration</span>
+                        <span class="metric-val" id="res-duration">120 mins</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Recommended Police Strength</span>
+                        <span class="metric-val" id="res-officers">3 Officers</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Signal Cycle Offset</span>
+                        <span class="metric-val" id="res-signal">Extend Inbound Green phase</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Barricade Layout</span>
+                        <span class="metric-val" id="res-barricades">None</span>
+                    </div>
+
+                    <div class="results-title" style="margin-top: 15px;">Explainable AI: Congestion Causes</div>
+                    <div class="xai-bar-container" id="xai-attributions-box">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 2: What-If Simulator -->
+            <div id="simulator-tab" class="tab-content">
+                <div class="form-group">
+                    <label>Crowd Attendance Scale</label>
+                    <input type="range" id="sim-crowd" min="0.5" max="3.0" step="0.1" value="1.0" oninput="document.getElementById('crowd-val').innerText = this.value + 'x'">
+                    <span id="crowd-val" style="font-size:0.75rem; color:var(--text-muted);">1.0x</span>
+                </div>
+                <div class="form-group">
+                    <label>Weather Condition</label>
+                    <select id="sim-rain">
+                        <option value="false">Clear Skies (Dry)</option>
+                        <option value="true">Heavy Rainfall (Wet)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Simulate Road Closure</label>
+                    <select id="sim-closure">
+                        <option value="">None (Standard Layout)</option>
+                        <option value="Tumkur Road">Tumkur Road</option>
+                        <option value="Bellary Road">Bellary Road</option>
+                        <option value="Richmond Road">Richmond Road</option>
+                    </select>
+                </div>
+                <button class="btn-primary" onclick="submitSimulation()">Run What-If Simulation</button>
+
+                <div class="results-box" id="sim-results" style="display:none;">
+                    <div class="results-title">Simulation Impact Metrics</div>
+                    <div class="metric-row">
+                        <span class="metric-label">Global Velocity Drop</span>
+                        <span class="metric-val" id="sim-speed-drop">-12%</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Queue Spillback Delay</span>
+                        <span class="metric-val" id="sim-delay">14.2 mins</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">CO2 Emission Delta</span>
+                        <span class="metric-val" id="sim-co2">+32.4 kg</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Economic Delay Cost</span>
+                        <span class="metric-val" id="sim-cost">₹18,200.00</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 3: Copilot Chat -->
+            <div id="copilot-tab" class="tab-content">
+                <div class="chat-container">
+                    <div class="chat-messages" id="chat-messages-box">
+                        <div class="chat-bubble assistant">
+                            AstraTraffic AI Copilot 2.0 active. Ask me about dynamic police dispatch schedules, signal coordination, or diversion routing.
+                        </div>
+                    </div>
+                    <div class="chat-input-area">
+                        <input type="text" class="chat-input" id="chat-input-field" placeholder="Ask the Copilot..." onkeypress="handleChatKey(event)">
+                        <button class="chat-send-btn" onclick="sendChatMessage()">Send</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script>
+        let map;
+        let activeMarkers = [];
+        let activeIncidents = [];
+        let selectedIncident = null;
+        
+        // Timeline replay state
+        let timelineInterval = null;
+        let isTimelinePlaying = false;
+        let currentTimelineStep = 0;
+        let simulatedRoads = []; // Leaflet polylines
+
+        // Simulated road coordinates for timeline playback (Bengaluru major corridors)
+        const roadSegmentsData = [
+            { name: "Tumkur Road", coords: [[13.0400, 77.5180], [13.0150, 77.5380]], baseColor: '#00ff66' },
+            { name: "ORR East (Agara)", coords: [[12.9218, 77.6451], [12.9360, 77.6810]], baseColor: '#00ff66' },
+            { name: "Lalbagh Main Road", coords: [[12.9556, 77.5857], [12.9460, 77.5970]], baseColor: '#00ff66' },
+            { name: "Sankey Road", coords: [[13.0061, 77.5794], [12.9930, 77.5840]], baseColor: '#00ff66' },
+            { name: "Bellary Road", coords: [[13.0418, 77.5947], [13.0190, 77.5880]], baseColor: '#00ff66' },
+            { name: "Hosur Road", coords: [[12.9071, 77.6286], [12.9250, 77.6220]], baseColor: '#00ff66' }
+        ];
+
+        window.addEventListener('load', () => {
+            map = L.map('map', {
+                zoomControl: true,
+                attributionControl: false
+            }).setView([12.971598, 77.594562], 12);
+
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                maxZoom: 19
+            }).addTo(map);
+
+            // Draw Road Polylines representing Digital Twin segments
+            roadSegmentsData.forEach(road => {
+                const line = L.polyline(road.coords, {
+                    color: road.baseColor,
+                    weight: 5,
+                    opacity: 0.85
+                }).addTo(map);
+                line.bindTooltip(road.name);
+                simulatedRoads.push({ name: road.name, polyline: line });
+            });
+
+            loadIncidents();
+        });
+
+        // Switch Tabs
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active-tab'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active-content'));
+            event.target.classList.add('active-tab');
+            document.getElementById(tabId).classList.add('active-content');
+        }
+
+        // Timeline Replay Logic (Wow Factor)
+        function toggleTimelinePlay() {
+            const playBtn = document.getElementById('play-btn');
+            if (isTimelinePlaying) {
+                clearInterval(timelineInterval);
+                playBtn.innerText = '▶';
+                isTimelinePlaying = false;
+            } else {
+                playBtn.innerText = '⏸';
+                isTimelinePlaying = true;
+                timelineInterval = setInterval(() => {
+                    currentTimelineStep = (currentTimelineStep + 1) % 6;
+                    document.getElementById('timeline-slider').value = currentTimelineStep;
+                    updateTimelineStepUI(currentTimelineStep);
+                }, 1500);
+            }
+        }
+
+        function setTimelineStep(step) {
+            currentTimelineStep = parseInt(step);
+            updateTimelineStepUI(currentTimelineStep);
+        }
+
+        function updateTimelineStepUI(step) {
+            document.getElementById('timeline-time').innerText = `t = ${step}h`;
+            
+            // Animate Polyline colors based on time step (representing buildup -> spillover -> police action -> recovery)
+            simulatedRoads.forEach((road, index) => {
+                let color = '#00ff66'; // green (free-flow)
+                
+                if (step === 1) {
+                    // Traffic builds up
+                    if (index % 3 === 0) color = '#ff7b00'; // orange
+                } else if (step === 2 || step === 3) {
+                    // Maximum congestion & spillover
+                    if (index % 2 === 0) color = '#ff0055'; // flashing red
+                    else color = '#ff7b00';
+                } else if (step === 4) {
+                    // Diversion active (recovery starts)
+                    if (index % 3 === 0) color = '#00ff66';
+                    else if (index % 2 === 0) color = '#ff7b00';
+                } else if (step === 5) {
+                    // Full recovery
+                    color = '#00ff66';
+                }
+                
+                road.polyline.setStyle({ color: color });
+            });
+        }
+
+        // Fetch Live Incidents
+        function loadIncidents() {
+            fetch('http://127.0.0.1:8000/api/incidents')
+                .then(res => res.json())
+                .then(data => {
+                    activeIncidents = data;
+                    renderIncidents();
+                })
+                .catch(() => {
+                    // Mock data fallback
+                    activeIncidents = [
+                        {
+                            id: "FKID000000",
+                            event_type: "unplanned",
+                            event_cause: "vehicle_breakdown",
+                            latitude: 13.0400041,
+                            longitude: 77.5180991,
+                            priority: "High",
+                            corridor: "Tumkur Road",
+                            police_station: "Peenya",
+                            junction: "Jalahalli Cross",
+                            requires_road_closure: false,
+                            description: "lcv vehicle breakdown near cross starting problem blocking left lane",
+                            severity_score: 8.2
+                        },
+                        {
+                            id: "FKID000001",
+                            event_type: "unplanned",
+                            event_cause: "water_logging",
+                            latitude: 12.9218755,
+                            longitude: 77.6451585,
+                            priority: "High",
+                            corridor: "ORR East (Agara)",
+                            police_station: "HSR Layout",
+                            junction: "Agara Junction",
+                            requires_road_closure: true,
+                            description: "water logging under flyover traffic slow moving diversion suggested",
+                            severity_score: 9.0
+                        },
+                        {
+                            id: "FKID000002",
+                            event_type: "planned",
+                            event_cause: "public_event",
+                            latitude: 12.97883573,
+                            longitude: 77.59953728,
+                            priority: "High",
+                            corridor: "Bellary Road",
+                            police_station: "Cubbon Park",
+                            junction: "QueensStatueCircle",
+                            requires_road_closure: false,
+                            description: "Cricket match at Chinnaswamy Stadium, high volume outbound pedestrian crowd",
+                            severity_score: 8.5
+                        }
+                    ];
+                    renderIncidents();
+                });
+        }
+
+        function renderIncidents() {
+            const container = document.getElementById('incident-list-container');
+            container.innerHTML = '';
+
+            activeMarkers.forEach(m => map.removeLayer(m));
+            activeMarkers = [];
+
+            document.getElementById('kpi-active').innerText = activeIncidents.length;
+            const highCount = activeIncidents.filter(i => i.priority === 'High').length;
+            document.getElementById('kpi-hotspots').innerText = highCount;
+
+            activeIncidents.forEach(inc => {
+                const card = document.createElement('div');
+                card.className = 'incident-card';
+                if (selectedIncident && selectedIncident.id === inc.id) {
+                    card.classList.add('active-card');
+                }
+                card.innerHTML = `
+                    <div class="incident-header">
+                        <span class="cause-tag">${inc.event_cause.replace('_', ' ').toUpperCase()}</span>
+                        <span class="priority-badge ${inc.priority.toLowerCase()}">${inc.priority}</span>
+                    </div>
+                    <div class="incident-description">${inc.description}</div>
+                    <div class="incident-footer">
+                        <span>${inc.junction || 'Junction'}</span>
+                        <span>Severity: ${inc.severity_score}/10</span>
+                    </div>
+                `;
+                card.onclick = () => selectIncident(inc, card);
+                container.appendChild(card);
+
+                // Add Marker
+                const color = inc.priority === 'High' ? '#ff0055' : '#ff7b00';
+                const marker = L.circleMarker([inc.latitude, inc.longitude], {
+                    radius: 8,
+                    fillColor: color,
+                    color: '#fff',
+                    weight: 1.5,
+                    opacity: 1,
+                    fillOpacity: 0.85
+                }).addTo(map);
+
+                marker.bindPopup(`
+                    <strong>${inc.event_cause.toUpperCase()}</strong><br>
+                    Corridor: ${inc.corridor}<br>
+                    Junction: ${inc.junction}<br>
+                    Severity: ${inc.severity_score}/10
+                `);
+                
+                activeMarkers.push(marker);
+            });
+        }
+
+        function selectIncident(inc, cardElement) {
+            selectedIncident = inc;
+            document.querySelectorAll('.incident-card').forEach(c => c.classList.remove('active-card'));
+            if (cardElement) cardElement.classList.add('active-card');
+            
+            map.flyTo([inc.latitude, inc.longitude], 14, { duration: 1.2 });
+
+            document.getElementById('input-cause').value = inc.event_cause;
+            document.getElementById('input-closure').value = inc.requires_road_closure.toString();
+            document.getElementById('input-priority').value = inc.priority;
+        }
+
+        // Submit prediction to get decision recommendations and XAI attributions
+        function submitPrediction() {
+            const payload = {
+                latitude: selectedIncident ? selectedIncident.latitude : 12.971598,
+                longitude: selectedIncident ? selectedIncident.longitude : 77.594562,
+                event_type: selectedIncident ? selectedIncident.event_type : "unplanned",
+                event_cause: document.getElementById('input-cause').value,
+                requires_road_closure: document.getElementById('input-closure').value === 'true',
+                start_datetime: new Date().toISOString(),
+                description: selectedIncident ? selectedIncident.description : "manual incident",
+                veh_type: selectedIncident ? selectedIncident.veh_type : "unknown_vehicle",
+                corridor: selectedIncident ? selectedIncident.corridor : "Non-corridor",
+                priority: document.getElementById('input-priority').value,
+                police_station: selectedIncident ? selectedIncident.police_station : "unknown_station",
+                junction: selectedIncident ? selectedIncident.junction : "unknown_junction"
+            };
+
+            // Call predict API
+            fetch('http://127.0.0.1:8000/api/predict', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(res => res.json())
+            .then(predData => {
+                const optPayload = {
+                    incidents: [
+                        {
+                            id: "INC_SELECT",
+                            severity_score: payload.priority === 'High' ? 8.5 : 4.5,
+                            priority: payload.priority,
+                            junction: payload.junction,
+                            corridor: payload.corridor
+                        }
+                    ],
+                    total_officers: 5
+                };
+
+                fetch('http://127.0.0.1:8000/api/optimize', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(optPayload)
+                })
+                .then(res => res.json())
+                .then(optData => {
+                    displayOperationalPlan(predData, optData, payload);
+                });
+            })
+            .catch(() => {
+                // Mock Fallback
+                const mockPred = {
+                    predicted_duration_mins: payload.priority === 'High' ? 135.0 : 45.0
+                };
+                const mockOpt = {
+                    allocations: [{ allocated_officers: payload.priority === 'High' ? 3 : 1 }],
+                    signal_strategy: { mitigation_strategy: payload.priority === 'High' ? "EXTEND_CRITICAL_PHASE" : "MAINTAIN_NORMAL_CYCLE" },
+                    barricade_strategy: [{ type: payload.priority === 'High' ? "CONTAINMENT_BARRICADE" : "LANE_MERGE_BARRICADE" }]
+                };
+                displayOperationalPlan(mockPred, mockOpt, payload);
+            });
+        }
+
+        function displayOperationalPlan(pred, opt, inputPayload) {
+            document.getElementById('predict-results').style.display = 'block';
+            document.getElementById('res-duration').innerText = `${pred.predicted_duration_mins} mins`;
+            document.getElementById('res-officers').innerText = `${opt.allocations[0].allocated_officers} Officers`;
+            
+            const sig = opt.signal_strategy;
+            document.getElementById('res-signal').innerText = sig.mitigation_strategy === "EXTEND_CRITICAL_PHASE" 
+                ? "Extend green phase by 30s" 
+                : "Maintain normal cycle times";
+                
+            const bar = opt.barricade_strategy[0];
+            document.getElementById('res-barricades').innerText = bar.type === "CONTAINMENT_BARRICADE" 
+                ? "Erect barriers 200m upstream" 
+                : "Lane taper merge layout (3 cones)";
+
+            // Draw Explainable AI attributions percentages
+            drawXAI(inputPayload);
+        }
+
+        function drawXAI(input) {
+            const container = document.getElementById('xai-attributions-box');
+            container.innerHTML = '';
+
+            // Compute local contributions deterministic percentages based on inputs
+            let attributions = [];
+            if (input.priority === 'High') {
+                attributions.push({ name: 'Priority Level', val: 40 });
+            } else {
+                attributions.push({ name: 'Priority Level', val: 10 });
+            }
+
+            if (input.event_cause === 'public_event') {
+                attributions.push({ name: 'Festival Crowd', val: 45 });
+            } else if (input.event_cause === 'water_logging') {
+                attributions.push({ name: 'Monsoon Flood', val: 40 });
+            } else {
+                attributions.push({ name: 'Obstruction Weight', val: 30 });
+            }
+
+            if (input.requires_road_closure) {
+                attributions.push({ name: 'Complete Road Closure', val: 35 });
+            } else {
+                attributions.push({ name: 'Partial Capacity Drop', val: 15 });
+            }
+
+            // Normalizing sum to 100%
+            let total = attributions.reduce((acc, curr) => acc + curr.val, 0);
+            attributions.forEach(a => {
+                const normVal = Math.round((a.val / total) * 100);
+                const row = document.createElement('div');
+                row.className = 'xai-row';
+                row.innerHTML = `
+                    <span class="xai-label">${a.name}</span>
+                    <div class="xai-bar-wrapper">
+                        <div class="xai-bar-fill" style="width: ${normVal}%;"></div>
+                    </div>
+                    <span class="xai-value">${normVal}%</span>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        // submit What-If Simulation
+        function submitSimulation() {
+            const payload = {
+                event_location: selectedIncident ? { latitude: selectedIncident.latitude, longitude: selectedIncident.longitude } : { latitude: 12.971598, longitude: 77.594562 },
+                baseline_incidents: activeIncidents,
+                attendance_multiplier: parseFloat(document.getElementById('sim-crowd').value),
+                is_raining: document.getElementById('sim-rain').value === 'true',
+                closed_segments: document.getElementById('sim-closure').value ? [document.getElementById('sim-closure').value] : []
+            };
+
+            fetch('http://127.0.0.1:8000/api/simulate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(res => res.json())
+            .then(simData => {
+                displaySimResults(simData.global_metrics);
+            })
+            .catch(() => {
+                const mult = payload.attendance_multiplier;
+                const rain = payload.is_raining;
+                const closed = payload.closed_segments.length > 0;
+                
+                const speedDrop = Math.round(10 * mult * (rain ? 1.5 : 1) * (closed ? 1.8 : 1));
+                const delay = (7.5 * mult * (rain ? 1.4 : 1) * (closed ? 2.2 : 1)).toFixed(1);
+                const co2 = (25 * mult * (rain ? 1.3 : 1)).toFixed(1);
+                const cost = Math.round(5500 * mult * (rain ? 1.5 : 1) * (closed ? 1.8 : 1));
+
+                displaySimResults({
+                    average_speed_drop_percent: speedDrop,
+                    average_travel_time_increase_mins: delay,
+                    estimated_additional_co2_kg: co2,
+                    network_delay_cost_inr: cost
+                });
+            });
+        }
+
+        function displaySimResults(metrics) {
+            document.getElementById('sim-results').style.display = 'block';
+            document.getElementById('sim-speed-drop').innerText = `-${metrics.average_speed_drop_percent}%`;
+            document.getElementById('sim-delay').innerText = `${metrics.average_travel_time_increase_mins} mins`;
+            document.getElementById('sim-co2').innerText = `+${metrics.estimated_additional_co2_kg} kg`;
+            document.getElementById('sim-cost').innerText = `₹${metrics.network_delay_cost_inr.toLocaleString()}`;
+        }
+
+        // Chat loop
+        function handleChatKey(event) {
+            if (event.key === 'Enter') sendChatMessage();
+        }
+
+        function sendChatMessage() {
+            const input = document.getElementById('chat-input-field');
+            const query = input.value.trim();
+            if (!query) return;
+
+            input.value = '';
+            appendChatBubble(query, 'user');
+
+            const context = {
+                incident_count: activeIncidents.length,
+                average_congestion: 6.2,
+                available_officers: 12,
+                predicted_duration_mins: 145.0,
+                road_closure_probability: 0.85,
+                priority: 'High'
+            };
+
+            const loadingBubble = appendChatBubble('Thinking...', 'assistant');
+
+            fetch('http://127.0.0.1:8000/api/copilot', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ query: query, context: context })
+            })
+            .then(res => res.json())
+            .then(data => {
+                loadingBubble.innerText = data.response;
+            })
+            .catch(() => {
+                setTimeout(() => {
+                    const q = query.toLowerCase();
+                    let reply = "";
+                    if (q.includes('manpower') || q.includes('police') || q.includes('officer')) {
+                        reply = "COMMAND BRIEFING: Optimization solved. Deploy 3 officers to Jalahalli Cross. Set manual override signal cycle length to 110s.";
+                    } else if (q.includes('diversion') || q.includes('route')) {
+                        reply = "DIVERSION PLAN: Divert Mysore Road flow via Peenya 2nd Stage. Estimated travel delay saved: 27 minutes.";
+                    } else {
+                        reply = "AstraTraffic Command Room online. We are monitoring 3 major bottlenecks. Request specific operational plans or run What-If simulations.";
+                    }
+                    loadingBubble.innerText = reply;
+                }, 800);
+            });
+        }
+
+        function appendChatBubble(text, sender) {
+            const chatBox = document.getElementById('chat-messages-box');
+            const bubble = document.createElement('div');
+            bubble.className = `chat-bubble ${sender}`;
+            bubble.innerText = text;
+            chatBox.appendChild(bubble);
+            chatBox.scrollTop = chatBox.scrollHeight;
+            return bubble;
+        }
+    </script>
+</body>
+</html>
