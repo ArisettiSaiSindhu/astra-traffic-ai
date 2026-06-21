@@ -10,3 +10,4 @@ scipy
 geopy
 python-multipart
 google-generativeai
+python-dotenv
